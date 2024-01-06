@@ -81,11 +81,11 @@ def crop_sentence(sentence, max_len=1024):
 
 
 def add_feature(input_text):
-    prefix = ('Now you are a media data researcher and you are working on fake news detection, '
+    prompt = ('Now you are a media data researcher and you are working on fake news detection, '
               'determine whether the following news is real or fake: %s\nNote that you only '
               'need to return "real" or "fake", no additional output is required.') % (
                  input_text).replace('\n', '')
-    return prefix
+    return prompt
 
 
 if __name__ == "__main__":

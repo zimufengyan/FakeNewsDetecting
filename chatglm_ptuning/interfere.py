@@ -18,7 +18,7 @@ class AlgSolution:
 
     def __init__(self):
 
-        pre_seq_len = 384
+        pre_seq_len = 256
         model_name = "/opt/data/private/LLM2/ChatGLM3/chatglm3-6b/"
         ptuning_path = f"./output/ptuing-chatglm3-6b-pt-20231220-{pre_seq_len}-2e-2/checkpoint-3500/"
 
@@ -43,10 +43,9 @@ class AlgSolution:
 
     @staticmethod
     def pre_process(input_data: Dict) -> str:
-        prompt = ("请你帮我判断如下小说简介来自哪一种类型的小说，"
-                  "已知全部类型有'玄幻', '奇幻', '武侠', '仙侠', '都市', '历史', '游戏', '科幻', '奇闻异事', '古代言情', '现代言情', "
-                  "'幻想言情'，小说简介如下《%s》，注意你的回复应该为'玄幻', '奇幻', '武侠', '仙侠', '都市', '历史', '游戏', '科幻', '奇闻异事', '古代言情', "
-                  "'现代言情‘或'幻想言情'，不需要额外输出。") % (
+        prompt = ('Now you are a media data researcher and you are working on fake news detection, '
+                  'determine whether the following news is real or fake: %s\nNote that you only '
+                  'need to return "real" or "fake", no additional output is required.') % (
                      input_data['input']).replace('\n', '')
         return prompt
 
@@ -54,7 +53,7 @@ class AlgSolution:
         inputs = self.tokenizer(prompt, return_tensors="pt")
         inputs = inputs.to(self.device)
         # response = self.model.chat(self.tokenizer, prompt, history=[])
-        max_len = 684
+        max_len = 1280
         response = self.model.generate(input_ids=inputs["input_ids"],
                                        max_length=max_len)
         response = response[0, inputs["input_ids"].shape[-1]:]
@@ -91,23 +90,26 @@ class AlgSolution:
 if __name__ == '__main__':
     import json
 
-    test = []
-    with open('../data/full/test.jsonl') as f:
-        for line in f:
-            test.append(json.loads(line))
+    with open('../data/full/test.json') as f:
+            test = json.loads(f.readlines())
     print(f"测试集数量: {len(test)}")
     solution = AlgSolution()
 
-    # # evaluation on test set
-    # results = solution.predicts(test)
-    # correct = 0
-    # for i, res in enumerate(results):
-    #     if res['output'] == test[i]['output']:
-    #         correct += 1
-    # print(f"准确率: {correct / len(test) :.4f}")
-
-    # demo presentation
-    demo = "如果天道无情，我便伐了这天!"
-    result = solution.predict(demo)
-    print(f"{demo} -> {result}")
-    # 如果天道无情，我便伐了这天! -> 玄幻
+    # evaluation on test set
+    results = solution.predicts(test)
+    correct, tp, fp, fn = 0, 0, 0, 0
+    for i, res in enumerate(results):
+        if res['output'] == test[i]['output']:
+            correct += 1
+            if test[i]['output'] == 'real':
+                tp += 1     # true positive
+        else:
+            if test[i]['output'] == 'fake':
+                fp += 1     # false positive
+            else:
+                fn += 1     # false negative
+    accuracy = correct / len(test)
+    precision = tp / (tp + fp)
+    recall = tp / (tp + fn)
+    f1 = (precision + recall) / 2
+    print(f"准确率: {accuracy :.4f}; 精确率: {precision :.4f}; 召回率: {recall :.4f}; F1: {f1 :.4f}")
