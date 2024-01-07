@@ -16,11 +16,12 @@ from tqdm import tqdm
 
 class AlgSolution:
 
-    def __init__(self):
+    def __init__(self, pre_seq_len=256, max_new_tokens=4):
 
-        pre_seq_len = 256
+        self.pre_seq_len = pre_seq_len
+        self.max_new_tokens = max_new_tokens
         model_name = "/opt/data/private/LLM2/ChatGLM3/chatglm3-6b/"
-        ptuning_path = f"./output/ptuing-chatglm3-6b-pt-20231220-{pre_seq_len}-2e-2/checkpoint-3500/"
+        ptuning_path = f"./output/ptuing-chatglm3-6b-pt-20240105-{pre_seq_len}-2e-2/checkpoint-1500/"
 
         self.tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
         self.device = torch.device('cuda')
@@ -52,10 +53,8 @@ class AlgSolution:
     def generate(self, prompt: str) -> str:
         inputs = self.tokenizer(prompt, return_tensors="pt")
         inputs = inputs.to(self.device)
-        # response = self.model.chat(self.tokenizer, prompt, history=[])
-        max_len = 1280
         response = self.model.generate(input_ids=inputs["input_ids"],
-                                       max_length=max_len)
+                                       max_length=inputs["input_ids"].shape[-1] + self.max_new_tokens)
         response = response[0, inputs["input_ids"].shape[-1]:]
         response = self.tokenizer.decode(response, skip_special_tokens=True)
         return response
@@ -90,8 +89,8 @@ class AlgSolution:
 if __name__ == '__main__':
     import json
 
-    with open('../data/full/test.json') as f:
-            test = json.loads(f.readlines())
+    with open('../data/test.json') as f:
+        test = json.load(f)
     print(f"测试集数量: {len(test)}")
     solution = AlgSolution()
 
@@ -102,14 +101,15 @@ if __name__ == '__main__':
         if res['output'] == test[i]['output']:
             correct += 1
             if test[i]['output'] == 'real':
-                tp += 1     # true positive
+                tp += 1  # true positive
         else:
             if test[i]['output'] == 'fake':
-                fp += 1     # false positive
+                fp += 1  # false positive
             else:
-                fn += 1     # false negative
+                fn += 1  # false negative
     accuracy = correct / len(test)
     precision = tp / (tp + fp)
     recall = tp / (tp + fn)
     f1 = (precision + recall) / 2
     print(f"准确率: {accuracy :.4f}; 精确率: {precision :.4f}; 召回率: {recall :.4f}; F1: {f1 :.4f}")
+    # 准确率: 0.9866; 精确率: 0.9953; 召回率: 0.9787; F1: 0.9870
